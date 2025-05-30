@@ -1,0 +1,13 @@
+name: cnsbm
+dependencies:
+  - python=3.10
+  - pandas
+  - seaborn
+  - matplotlib
+  - jax
+  - scikit-learn
+  - scipy
+  - pip
+  - pip:
+    - numpy
+

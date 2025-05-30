@@ -1,0 +1,19 @@
+# exclude all Mac OS graphics
+*/.DS_Store
+.DS_Store
+
+# exclude all XML
+*/.xml
+*.xml
+*.iml
+
+# exclude all pycache files and ipynb checkpoints
+*/_pycache_
+*.pyc
+*.swp
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+*.Rhistory
+
+
