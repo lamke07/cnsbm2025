@@ -1,4 +1,4 @@
-# Copy Number Stochastic Block Model (CNSBM) code for MLCB 2025
+# Copy Number Stochastic Block Model (CNSBM) code
 
 We recommend using a conda environment. Otherwise you can just install the packages in `environment.yml`:
 
