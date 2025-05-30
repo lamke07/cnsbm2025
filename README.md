@@ -12,6 +12,12 @@ Compatibility note: in addition to exporting outputs via csv, we can save models
 # Simple usage
 
 ```python
+import os
+import jax.numpy as jnp
+from model import CNSBM
+
+cwd = os.getcwd()
+
 # convert categorical matrix to jax array
 # missing values are encoded as -1. Categories need to be encoded starting from 0.
 # The number of categories will be inferred by C.max()
