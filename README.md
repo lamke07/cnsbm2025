@@ -1,3 +1,9 @@
+# CN-SBM: Categorical Block Modelling For Primary and Residual Copy Number Variation
+This repository contains the implementation of the model described in the paper: **CN-SBM: Categorical Block Modelling For Primary and Residual Copy Number Variation** ([arXiv:2506.22963](https://arxiv.org/abs/2506.22963)), to appear in MLCB 2025.
+
+# Note on NumPy Version
+If you plan to use pickle files in an environment with NumPy < 2, you should install numpy < 2 for compatibility. Otherwise, it is fine to use NumPy 2 or newer.
+
 # Copy Number Stochastic Block Model (CNSBM) code
 
 We recommend using a conda environment. Otherwise you can just install the packages in `environment.yml`:
@@ -6,8 +12,6 @@ We recommend using a conda environment. Otherwise you can just install the packa
 conda env create -f environment.yml
 conda activate cnsbm
 ```
-
-Compatibility note: in addition to exporting outputs via csv, we can save models as .pickle. There is a numpy 2.0 vs numpy <2.0 incompatibility when loading these pickles.
 
 # Simple usage
 
@@ -18,9 +22,9 @@ from model import CNSBM
 
 cwd = os.getcwd()
 
-# convert categorical matrix to jax array
-# missing values are encoded as -1. Categories need to be encoded starting from 0.
-# The number of categories will be inferred by C.max()
+# C is a categorical matrix (integer-encoded categories starting from 0),
+# missing values are encoded as -1. The number of categories will be inferred by C.max().
+# For an example of how to construct and use C, see cn_vi-simple.ipynb in this repository
 C = jnp.asarray(C)
 K, L = 15, 10
 
