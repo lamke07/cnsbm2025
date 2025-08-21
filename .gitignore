@@ -11,6 +11,7 @@
 */_pycache_
 *.pyc
 *.swp
+.vscode/
 .ipynb_checkpoints/
 */.ipynb_checkpoints/
 

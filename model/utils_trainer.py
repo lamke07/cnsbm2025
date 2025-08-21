@@ -1,7 +1,8 @@
-import warnings
-import numpy as np
+import random, warnings
+# import numpy as np
 from collections import Counter
 
+import jax
 import jax.numpy as jnp
 from jax.scipy.special import entr
 from sklearn.cluster import SpectralClustering, SpectralBiclustering
@@ -18,7 +19,7 @@ def row_col_redundant(phi_g, phi_h, dir_mean, empty_threshold=1e-6, verbose=True
         h_empty = jnp.expand_dims(jnp.asarray([i for i in range(phi_h.shape[1]) if i not in h_labels_unique]), 1)
 
     # check number of unique clusters
-    cluster_means = np.array(jnp.argmax(dir_mean, axis=2))
+    cluster_means = jnp.argmax(dir_mean, axis=2)
     _, g_unique_clusters = jnp.unique(cluster_means, axis=0, return_index=True)
     _, h_unique_clusters = jnp.unique(cluster_means, axis=1, return_index=True)
     g_duplicated = [i for i in range(phi_g.shape[1]) if i not in g_unique_clusters]
@@ -63,7 +64,7 @@ def select_redundant_clusters(g_empty, g_duplicated, h_empty, h_duplicated, prio
 def clusters_to_split_single(dir_mean, split_direction, empty_threshold=1e-6, min_split_threshold=1e-6, verbose=True):
     # normalized entropy: mask out full entropy clusters (uniform distributions)
     num_cat = dir_mean.shape[2]
-    dir_mean_entr = entr(dir_mean).sum(axis=2)/np.log(num_cat)
+    dir_mean_entr = entr(dir_mean).sum(axis=2)/jnp.log(num_cat)
     dir_mean_entr_masked = jnp.where(dir_mean_entr < 1-empty_threshold, dir_mean_entr, 0)
 
     # mean and average normalized entropy
@@ -93,8 +94,12 @@ def clusters_to_split_single(dir_mean, split_direction, empty_threshold=1e-6, mi
 def new_cluster_labels_single(
         C, dir_mean, g_labels, h_labels,
         cluster_candidates, split_direction, redundant_clusters,
-        how='spectral', split_threshold=None, verbose=True, multi_split=False
+        how='spectral', split_threshold=None, verbose=True, multi_split=False,
+        seed=None
     ):
+    if seed is None:
+        seed = random.randint(0, 5000)
+
     # get max number of new clusters to select
     cluster_replace = redundant_clusters[0] if split_direction == 'row' else redundant_clusters[1]
     n_iters = min(len(cluster_replace), len(cluster_candidates)) if multi_split else 1
@@ -127,7 +132,8 @@ def new_cluster_labels_single(
                 if verbose:
                     print(f"New category to be used: {new_cat}")
             elif how == 'random':
-                new_cluster_ids = np.random.randint(2, size=sub_C.shape[0])
+                # new_cluster_ids = np.random.randint(2, size=sub_C.shape[0])
+                new_cluster_ids = jax.random.randint(jax.random.PRNGKey(seed), sub_C.shape[0], 0, 2)
         except Exception as e:
             warnings.warn(f"Iteration {i}: Error in cluster assignment, skipping to next...")
             continue
@@ -141,21 +147,22 @@ def new_cluster_labels_single(
     return g_labels_new, h_labels_new
 
 def get_cluster_sizes(g_labels, h_labels, K, L):
-    cluster_sizes = np.zeros((K, L), dtype=int)
+    cluster_sizes = jnp.zeros((K, L), dtype=int)
 
     # Iterate through each combination of row and column clusters
     for k in range(K):
         for l in range(L):
             # Count the number of (row, column) pairs belonging to cluster (k, l)
-            cluster_sizes[k, l] = jnp.sum((g_labels[:, None] == k) & (h_labels[None, :] == l))
-    
+            cluster_sizes = cluster_sizes.at[k, l].set(jnp.sum((g_labels[:, None] == k) & (h_labels[None, :] == l)))
+
     # Flatten the cluster_sizes array to get (k, l) indices and their corresponding sizes
-    flattened_indices = [(k, l) for k in range(K) for l in range(L)]
+    flattened_indices = jnp.array([[k, l] for k in range(K) for l in range(L)])
     flattened_sizes = cluster_sizes.flatten()
-    
+
     # Sort the clusters by size in descending order
-    sorted_indices = [flattened_indices[i] for i in jnp.argsort(flattened_sizes)[::-1]]
-    sorted_sizes = sorted(flattened_sizes, reverse=True)
+    sorted_order = jnp.argsort(flattened_sizes)[::-1]
+    sorted_indices = flattened_indices[sorted_order]
+    sorted_sizes = flattened_sizes[sorted_order]
 
     return cluster_sizes, sorted_indices, sorted_sizes
 
@@ -206,7 +213,7 @@ def new_cluster_labels_block(
 def row_col_impurity(dir_mean, empty_threshold=1e-6, entr_threshold=0.2, verbose=True):
     # normalized entropy: mask out full entropy clusters (uniform distributions)
     num_cat = dir_mean.shape[2]
-    dir_mean_entr = entr(dir_mean).sum(axis=2)/np.log(num_cat)
+    dir_mean_entr = entr(dir_mean).sum(axis=2)/jnp.log(num_cat)
     dir_mean_entr_masked = jnp.where(dir_mean_entr < 1-empty_threshold, dir_mean_entr, 0)
 
     # average and variance normalized entropy
@@ -227,7 +234,9 @@ def row_col_impurity(dir_mean, empty_threshold=1e-6, entr_threshold=0.2, verbose
 
     return row_impurities, col_impurities, dir_mean_entr_masked
 
-def reset_min_clusters(g_labels, h_labels, gamma_kl, alpha_pi, min_samples_g=15, min_samples_h=15, verbose=True, direction='multi'):
+def reset_min_clusters(g_labels, h_labels, gamma_kl, alpha_pi, min_samples_g=15, min_samples_h=15, verbose=True, direction='multi', seed=None):
+    if seed is None:
+        seed = random.randint(0, 5000)
     g_counter, h_counter = Counter(g_labels), Counter(h_labels)
     
     g_min = [k for k, v in g_counter.items() if v < min_samples_g]
@@ -236,18 +245,22 @@ def reset_min_clusters(g_labels, h_labels, gamma_kl, alpha_pi, min_samples_g=15,
     if direction == 'multi':
         pass
     elif len(h_min) == 0 and len(g_min) > 0:
-        g_min = [g_min[np.random.choice(range(len(g_min)))]]
+        # g_min = [g_min[np.random.choice(range(len(g_min)))]]
+        g_min = [g_min[jax.random.choice(jax.random.PRNGKey(seed), jnp.arange(len(g_min)), shape=(1,))]]
         h_min = []
     elif len(g_min) == 0 and len(h_min) > 0:
         g_min = []
-        h_min = [h_min[np.random.choice(range(len(h_min)))]]
+        # h_min = [h_min[np.random.choice(range(len(h_min)))]]
+        h_min = [h_min[jax.random.choice(jax.random.PRNGKey(seed), jnp.arange(len(h_min)), shape=(1,))]]
     elif len(g_min) > 0 and len(h_min) > 0:
         if direction == 'row':
-            g_min = [g_min[np.random.choice(range(len(g_min)))]]
+            # g_min = [g_min[np.random.choice(range(len(g_min)))]]
+            g_min = [g_min[jax.random.choice(jax.random.PRNGKey(seed), jnp.arange(len(g_min)), shape=(1,))]]
             h_min = []
         else:
             g_min = []
-            h_min = [h_min[np.random.choice(range(len(h_min)))]]
+            # h_min = [h_min[np.random.choice(range(len(h_min)))]]
+            h_min = [h_min[jax.random.choice(jax.random.PRNGKey(seed), jnp.arange(len(h_min)), shape=(1,))]]
 
     if verbose:
         print(f"Resetting small sample row clusters {g_min}, col clusters {h_min}")
@@ -264,7 +277,9 @@ def reset_min_clusters(g_labels, h_labels, gamma_kl, alpha_pi, min_samples_g=15,
 
     return gamma_kl
 
-def reset_duplicated_clusters(phi_g, phi_h, dir_mean, gamma_kl, alpha_pi, empty_threshold=1e-6, verbose=True, posterior_map=True, direction='multi'):
+def reset_duplicated_clusters(phi_g, phi_h, dir_mean, gamma_kl, alpha_pi, empty_threshold=1e-6, verbose=True, posterior_map=True, direction='multi', seed=None):
+    if seed is None:
+        seed = random.randint(0, 5000)
     g_empty, g_duplicated, h_empty, h_duplicated = row_col_redundant(phi_g, phi_h, dir_mean, empty_threshold=empty_threshold, verbose=verbose, posterior_map=posterior_map)
 
     g_reset = list(set(g_duplicated) - set(g_empty.squeeze(1).tolist()))
@@ -273,18 +288,22 @@ def reset_duplicated_clusters(phi_g, phi_h, dir_mean, gamma_kl, alpha_pi, empty_
     if direction == 'multi':
         pass
     elif len(h_reset) == 0 and len(g_reset) > 0:
-        g_reset = [g_reset[np.random.choice(range(len(g_reset)))]]
+        # g_reset = [g_reset[np.random.choice(range(len(g_reset)))]]
+        g_reset = [g_reset[jax.random.choice(jax.random.PRNGKey(seed), jnp.arange(len(g_reset)), shape=(1,))]]
         h_reset = []
     elif len(g_reset) == 0 and len(h_reset) > 0:
         g_reset = []
-        h_reset = [h_reset[np.random.choice(range(len(h_reset)))]]
+        # h_reset = [h_reset[np.random.choice(range(len(h_reset)))]]
+        h_reset = [h_reset[jax.random.choice(jax.random.PRNGKey(seed), jnp.arange(len(h_reset)), shape=(1,))]]
     elif len(g_reset) > 0 and len(h_reset) > 0:
         if direction == 'row':
-            g_reset = [g_reset[np.random.choice(range(len(g_reset)))]]
+            # g_reset = [g_reset[np.random.choice(range(len(g_reset)))]]
+            g_reset = [g_reset[jax.random.choice(jax.random.PRNGKey(seed), jnp.arange(len(g_reset)), shape=(1,))]]
             h_reset = []
         else:
             g_reset = []
-            h_reset = [h_reset[np.random.choice(range(len(h_reset)))]]
+            # h_reset = [h_reset[np.random.choice(range(len(h_reset)))]]
+            h_reset = [h_reset[jax.random.choice(jax.random.PRNGKey(seed), jnp.arange(len(h_reset)), shape=(1,))]]
 
     if verbose:
         print(f"Resetting duplicated row clusters {g_reset}, col clusters {h_reset}")

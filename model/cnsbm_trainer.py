@@ -287,4 +287,4 @@ class CNSBMTrainer:
             pickle.dump(params, f)
 
         # with open(os.path.join(cwd, 'trainer_test.pkl'), "rb") as f:
-        #     params1 = pickle.load(f)
+        #     params = pickle.load(f)
