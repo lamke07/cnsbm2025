@@ -474,11 +474,18 @@ class CNSBM:
         # Obtain fitted parameters and MAP
         assert self.fitted
         
-        phi_g, phi_h, gamma_kl = (self.fitted_params[keys] for keys in ('phi_g', 'phi_h', 'gamma_kl'))
+        phi_g, phi_h, gamma_g, gamma_h, gamma_kl = (self.fitted_params[keys] for keys in ('phi_g', 'phi_h', 'gamma_g', 'gamma_h', 'gamma_kl'))
+        gamma_g_post = gamma_g/gamma_g.sum()
+        gamma_h_post = gamma_h/gamma_h.sum()
+
         cluster_argmax = np.array(jnp.argmax(gamma_kl, axis=2))
         dir_mean, dir_variance = post_dir(gamma_kl)
 
-        self.posterior_dist = {'g_labels': jnp.argmax(phi_g, 1), 'h_labels': jnp.argmax(phi_h, 1), 'cluster_argmax': cluster_argmax, 'dir_mean': dir_mean, 'dir_variance': dir_variance}
+        self.posterior_dist = {
+            'g_labels': jnp.argmax(phi_g, 1), 'h_labels': jnp.argmax(phi_h, 1),
+            'gamma_g_post': gamma_g_post, 'gamma_h_post': gamma_h_post,
+            'cluster_argmax': cluster_argmax, 'dir_mean': dir_mean, 'dir_variance': dir_variance
+        }
 
         return 1
     
@@ -540,16 +547,22 @@ class CNSBM:
         foldersave = os.path.join(folderpath, model_name)
         os.makedirs(foldersave, exist_ok=True)
 
-        post_mean = jax_array_to_csv(self.posterior_dist['dir_mean'], os.path.join(foldersave, 'sbm_fitted_pi_kl.csv'))
-        cluster_argmax = pd.DataFrame(self.posterior_dist['cluster_argmax']).to_csv(os.path.join(foldersave, 'sbm_fitted_cluster_argmax.csv'), index=False)
+        # posterior distributions
+        post_g = pd.DataFrame(self.fitted_params['phi_g']).to_csv(os.path.join(foldersave, 'sbm_POST_phi_g.csv'), index=False)
+        post_h = pd.DataFrame(self.fitted_params['phi_h']).to_csv(os.path.join(foldersave, 'sbm_POST_phi_h.csv'), index=False)
+        post_gamma_g = pd.DataFrame(self.fitted_params['gamma_g']).to_csv(os.path.join(foldersave, 'sbm_POST_gamma_g.csv'), index=False)
+        post_gamma_h = pd.DataFrame(self.fitted_params['gamma_h']).to_csv(os.path.join(foldersave, 'sbm_POST_gamma_h.csv'), index=False)
 
-        post_g = pd.DataFrame(self.fitted_params['phi_g']).to_csv(os.path.join(foldersave, 'sbm_fitted_phi_g.csv'), index=False)
-        post_h = pd.DataFrame(self.fitted_params['phi_h']).to_csv(os.path.join(foldersave, 'sbm_fitted_phi_h.csv'), index=False)
+        # posterior MAPs
+        g_labels = pd.DataFrame(self.posterior_dist['g_labels']).to_csv(os.path.join(foldersave, 'sbm_MAP_g_labels.csv'), index=False)
+        h_labels = pd.DataFrame(self.posterior_dist['h_labels']).to_csv(os.path.join(foldersave, 'sbm_MAP_h_labels.csv'), index=False)
+        g_mean = pd.DataFrame(self.posterior_dist['gamma_g_post']).to_csv(os.path.join(foldersave, 'sbm_MAP_gamma_g.csv'), index=False)
+        h_mean = pd.DataFrame(self.posterior_dist['gamma_h_post']).to_csv(os.path.join(foldersave, 'sbm_MAP_gamma_h.csv'), index=False)
 
-        g_labels = pd.DataFrame(self.posterior_dist['g_labels']).to_csv(os.path.join(foldersave, 'sbm_fitted_g_labels.csv'), index=False)
-        h_labels = pd.DataFrame(self.posterior_dist['h_labels']).to_csv(os.path.join(foldersave, 'sbm_fitted_h_labels.csv'), index=False)
-        
-    
+        post_mean = jax_array_to_csv(self.posterior_dist['dir_mean'], os.path.join(foldersave, 'sbm_MAP_pi_kl.csv'))
+        cluster_argmax = pd.DataFrame(self.posterior_dist['cluster_argmax']).to_csv(os.path.join(foldersave, 'sbm_MAP_cluster_argmax.csv'), index=False)
+
+
     def save_jax_model(self, filepath):
         assert self.fitted
         params = {
