@@ -633,8 +633,8 @@ def generate_phi_h(N, num_cat, clusters, concentration=0.9, key=None):
 
     return phi
 
-def ICL_penalty(N, M, K_unique, L_unique, num_cat, ICL_factor=0.5):
-    nr_edges = jnp.log(N) + jnp.log(M)
+def ICL_penalty(N, M, K_unique, L_unique, num_cat, ICL_factor=0.5, num_mis=0):
+    nr_edges = jnp.log(N*M - num_mis)
     nr_connectivities = K_unique*L_unique
     dim_connectivities = num_cat - 1
     

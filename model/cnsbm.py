@@ -42,6 +42,7 @@ class CNSBM:
             print(f"Detecting missing values - will use missingness mask (mode {propensity_mode}) and fill missing values with {fill_na}")
             self.missing = True
             self.C = jnp.where(self.C == -1, self.fill_na, self.C)
+            self.num_mis = (self.C == -1).sum()
             if self.propensity_mode is None:
                 self.C_mask = (self.C != -1)
             else:
@@ -49,6 +50,7 @@ class CNSBM:
         else:
             self.C_mask = None
             self.missing = False
+            self.num_mis = 0
 
         # Initialize update functions
         self.update_phi_g = utils_cnsbm.update_phi_g
@@ -454,7 +456,7 @@ class CNSBM:
         K_unique = len(jnp.unique(g_labels))
         L_unique = len(jnp.unique(h_labels))
 
-        ICL_pen = ICL_penalty(self.N, self.M, K_unique, L_unique, self.num_cat)
+        ICL_pen = ICL_penalty(self.N, self.M, K_unique, L_unique, self.num_cat, num_mis=self.num_mis)
         ll = self.loglik_fitted(slow=slow)
         
         # row/col cluster entropy
