@@ -1,5 +1,5 @@
 # CN-SBM: Categorical Block Modelling For Primary and Residual Copy Number Variation
-This repository contains the implementation of the model described in the paper: **CN-SBM: Categorical Block Modelling For Primary and Residual Copy Number Variation** ([arXiv:2506.22963](https://arxiv.org/abs/2506.22963)), to appear in MLCB 2025.
+This repository contains the implementation of the model described in the paper: **CN-SBM: Categorical Block Modelling For Primary and Residual Copy Number Variation** ([arXiv:2506.22963](https://arxiv.org/abs/2506.22963)), to appear in MLCB 2025. Head over to the pip-installable version at [CNSBM](https://github.com/lamke07/CNSBM) for the published installation!
 
 # Note on NumPy Version
 If you plan to use pickle files in an environment with NumPy < 2, you should install numpy < 2 for compatibility. Otherwise, it is fine to use NumPy 2 or newer.
